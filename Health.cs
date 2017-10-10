@@ -25,7 +25,7 @@ namespace RiemannHealth {
                 yield return new Service(service.Name);
             }
 			foreach (var drive in DriveInfo.GetDrives().Where(drive => drive.DriveType == DriveType.Fixed)) {
-				yield return new Disk(drive.Name);
+				yield return new Disk(drive.Name.Substring(0,1));
 			}
 			var interfaces = NetworkInterface.GetAllNetworkInterfaces()
 				.GroupBy(network => network.NetworkInterfaceType)
