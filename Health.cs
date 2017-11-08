@@ -16,29 +16,48 @@ namespace RiemannHealth {
 	}
 
 	public class Health {
-		public static IEnumerable<IHealthReporter> Reporters(bool includeGCStats, ServiceElementCollection services) {
-			yield return new Cpu();
-			yield return new Load();
-			yield return new Memory();
+		public static IEnumerable<IHealthReporter> Reporters(bool enableCpu, bool enableLoad, bool enableMemory, bool enableDisk,
+                bool enableNetwork, bool enableGCStats, ServiceElementCollection services) {
+            if (enableCpu)
+            {
+                yield return new Cpu();
+            }
+            if (enableLoad)
+            {
+                yield return new Load();
+            }
+            if (enableMemory)
+            {
+                yield return new Memory();
+            }
             foreach (ServiceElement service in services)
             {
                 yield return new Service(service.Name);
             }
-			foreach (var drive in DriveInfo.GetDrives().Where(drive => drive.DriveType == DriveType.Fixed)) {
-				yield return new Disk(drive.Name.Substring(0,1));
-			}
-			var interfaces = NetworkInterface.GetAllNetworkInterfaces()
-				.GroupBy(network => network.NetworkInterfaceType)
-				.Where(network => network.Key != NetworkInterfaceType.Loopback);
-			foreach (var networkType in interfaces) {
-				var nt = networkType.ToList();
-				for (var i = 0; i < nt.Count; i++) {
-					var name = Translate(networkType.Key) + i;
-					yield return new NetworkSent(nt[i], name);
-					yield return new NetworkReceived(nt[i], name);
-				}
-			}
-			if (includeGCStats) {
+            if (enableDisk)
+            {
+                foreach (var drive in DriveInfo.GetDrives().Where(drive => drive.DriveType == DriveType.Fixed))
+                {
+                    yield return new Disk(drive.Name.Substring(0, 1));
+                }
+            }
+            if (enableNetwork)
+            {
+                var interfaces = NetworkInterface.GetAllNetworkInterfaces()
+                    .GroupBy(network => network.NetworkInterfaceType)
+                    .Where(network => network.Key != NetworkInterfaceType.Loopback);
+                foreach (var networkType in interfaces)
+                {
+                    var nt = networkType.ToList();
+                    for (var i = 0; i < nt.Count; i++)
+                    {
+                        var name = Translate(networkType.Key) + i;
+                        yield return new NetworkSent(nt[i], name);
+                        yield return new NetworkReceived(nt[i], name);
+                    }
+                }
+            }
+			if (enableGCStats) {
 				yield return new DotNetGCTime();
 			}
 		}

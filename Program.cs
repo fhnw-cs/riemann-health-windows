@@ -3,28 +3,45 @@ using System.Configuration;
 using System.Linq;
 using System.Threading;
 using Riemann;
+using System.Collections.Generic;
 
 namespace RiemannHealth {
 	public class Program {
 		public static void Main(string[] args) {
 			string hostname;
-			ushort port;
+			ushort port = 5555;
+            bool useTcp = true;
 			double interval = 1.0;
 			ushort ttl = 5;
-			bool includeGCStats;
+            bool enableCpu = true;
+            bool enableLoad = true;
+            bool enableMemory = true;
+            bool enableDisk = true;
+            bool enableNetwork = false;
+			bool enableGCStats = false;
+            List<string> tags = null;
 			switch (args.Length) {
 				case 0:
 					var appSettings = ConfigurationManager.AppSettings;
 					hostname = appSettings["RiemannHost"];
 					port = UInt16.Parse(appSettings["RiemannPort"]);
-					interval = (float)UInt16.Parse(appSettings["Interval"]);
+                    useTcp = Boolean.Parse(appSettings["UseTcp"]);
+                    interval = (float)UInt16.Parse(appSettings["Interval"]);
 					ttl = UInt16.Parse(appSettings["TTL"]);
-					includeGCStats = Boolean.Parse(appSettings["IncludeGCstats"]);
-					break;
+                    enableCpu = Boolean.Parse(appSettings["EnableCpu"]);
+                    enableLoad = Boolean.Parse(appSettings["EnableLoad"]);
+                    enableMemory = Boolean.Parse(appSettings["EnableMemory"]);
+                    enableDisk = Boolean.Parse(appSettings["EnableDisk"]);
+                    enableNetwork = Boolean.Parse(appSettings["EnableNetwork"]);
+                    enableGCStats = Boolean.Parse(appSettings["EnableGCstats"]);
+                    string[] tagArr = appSettings["Tags"].Split(',').Select(s => s.Trim()).ToArray();
+                    if (tagArr.Length > 0)
+                    {
+                        tags = new List<string>(tagArr);
+                    }
+                    break;
 				case 1:
 					hostname = args[0];
-					port = 5555;
-					includeGCStats = true;
 					break;
 				case 2:
 					hostname = args[0];
@@ -32,7 +49,6 @@ namespace RiemannHealth {
 						Usage();
 						Environment.Exit(-1);
 					}
-					includeGCStats = true;
 					break;
 				default:
 					Usage();
@@ -43,8 +59,8 @@ namespace RiemannHealth {
             var serviceConfig = ConfigurationManager.OpenExeConfiguration( ConfigurationUserLevel.PerUserRoamingAndLocal);
             var serviceSection = serviceConfig.GetSection("services") as ServiceInfoSection;
          
-            var client = new Client(hostname, port);
-			var reporters = Health.Reporters(includeGCStats, serviceSection.Services)
+            var client = new Client(hostname, port, true, useTcp);
+			var reporters = Health.Reporters(enableCpu, enableLoad, enableMemory, enableDisk, enableNetwork, enableGCStats, serviceSection.Services)
 				.ToList();
 			while (true) {
 				foreach (var reporter in reporters) {
@@ -60,7 +76,7 @@ namespace RiemannHealth {
 						} else {
 							state = "ok";
 						}
-						client.SendEvent(reporter.Name, state, description, value, ttl);
+						client.SendEvent(reporter.Name, state, description, value, ttl, tags);
 					}
 				}
 				Thread.Sleep(TimeSpan.FromSeconds(interval));
