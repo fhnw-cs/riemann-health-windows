@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using Riemann;
 using System.Collections.Generic;
+using System.Collections;
 
 namespace RiemannHealth {
 	public class Program {
@@ -20,8 +21,11 @@ namespace RiemannHealth {
             bool enableNetwork = false;
 			bool enableGCStats = false;
             List<string> tags = null;
-			switch (args.Length) {
+            Dictionary<string, string> attributes = null;
+
+            switch (args.Length) {
 				case 0:
+                    // get app configuration
 					var appSettings = ConfigurationManager.AppSettings;
 					hostname = appSettings["RiemannHost"];
 					port = UInt16.Parse(appSettings["RiemannPort"]);
@@ -39,6 +43,9 @@ namespace RiemannHealth {
                     {
                         tags = new List<string>(tagArr);
                     }
+                    // get extra attributes
+                    var attributeSection = (Hashtable)ConfigurationManager.GetSection("attributes");
+                    attributes = attributeSection.Cast<DictionaryEntry>().ToDictionary(d => (string)d.Key, d => (string)d.Value);
                     break;
 				case 1:
 					hostname = args[0];
@@ -76,7 +83,7 @@ namespace RiemannHealth {
 						} else {
 							state = "ok";
 						}
-						client.SendEvent(reporter.Name, state, description, value, ttl, tags);
+						client.SendEvent(reporter.Name, state, description, value, ttl, tags, attributes);
 					}
 				}
 				Thread.Sleep(TimeSpan.FromSeconds(interval));
