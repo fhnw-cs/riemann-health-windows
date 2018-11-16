@@ -9,6 +9,7 @@ using System.ServiceProcess;
 
 namespace RiemannHealth {
 	public interface IHealthReporter {
+        
 		bool TryGetValue(out string description, out float value);
 		string Name { get; }
 		float WarnThreshold { get; }
@@ -180,7 +181,7 @@ Gen 2 collections: {6}", gcTime,
 
 			public bool TryGetValue(out string description, out float value) {
 				var load = _counter.NextValue();
-				description = string.Format("Processor queue length: {0}", load);
+				description = string.Format("System Load (Processor queue length): {0}", load);
 				value = load;
 				return true;
 			}
@@ -272,7 +273,9 @@ Gen 2 collections: {6}", gcTime,
             }
         }
 		private class Memory : IHealthReporter {
-			[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+            private const int megabytes = 1024 * 1024;
+
+            [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
 			private class MEMORYSTATUSEX {
 				public uint dwLength;
 				public uint dwMemoryLoad;
@@ -301,16 +304,13 @@ Gen 2 collections: {6}", gcTime,
 				}
 				value = 1.0f - (((float) memoryStatusEx.ullAvailPhys / memoryStatusEx.ullTotalPhys));
 				description = string.Format(
-					@"Available Physical Memory: {0}
-Total Physical Memory: {1}
-Memory Load: {2}
-Available Page File: {3}
-Total Page File: {4}",
-					memoryStatusEx.ullAvailPhys,
-					memoryStatusEx.ullTotalPhys,
+                    @"Physical Memory: {0:0.#} / {1:0.#} MB ({2} %)
+Page File: {3:0.#} / {4:0.#} MB",
+                    (float) (memoryStatusEx.ullTotalPhys - memoryStatusEx.ullAvailPhys) / megabytes,
+                    (float) memoryStatusEx.ullTotalPhys / megabytes,
 					memoryStatusEx.dwMemoryLoad,
-					memoryStatusEx.ullAvailPageFile,
-					memoryStatusEx.ullTotalPageFile);
+                    (float) (memoryStatusEx.ullTotalPageFile - memoryStatusEx.ullAvailPageFile) / megabytes,
+                    (float) memoryStatusEx.ullTotalPageFile / megabytes);
 				return true;
 			}
 
@@ -328,7 +328,9 @@ Total Page File: {4}",
 		}
 
 		private class Disk : IHealthReporter {
-			private readonly string _drive;
+            private const int megabytes = 1024 * 1024;
+
+            private readonly string _drive;
 			public Disk(string drive) {
 				_drive = drive;
 			}
@@ -342,9 +344,11 @@ Total Page File: {4}",
 				}
 				value = 1.0f - (((float) drive.AvailableFreeSpace) / drive.TotalSize);
 				description = string.Format(
-					@"Available Space: {0}
-Total Free Space: {1}
-Total Size: {2}", drive.AvailableFreeSpace, drive.TotalFreeSpace, drive.TotalSize);
+                    @"Disk {0}: {1:0.#} / {2:0.#} MB ({3} %)",
+                    _drive,
+                    (float) (drive.TotalSize - drive.AvailableFreeSpace) / megabytes,
+                    (float) drive.TotalSize / megabytes,
+                    (int) (value * 100));
 				return true;
 			}
 
